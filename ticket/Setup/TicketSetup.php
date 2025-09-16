@@ -49,7 +49,6 @@ class TicketSetup extends ParamSetup
         if ($request['type'] === 'add') {
             $this->values = $request['values'];
             $this->generateCode();
-            $this->ticketRequest();
         } else if ($request['type'] === 'update') {
             $this->conditions = $request['conditions'];
             $this->values = $request['values'];
@@ -57,13 +56,19 @@ class TicketSetup extends ParamSetup
             $this->conditions = $request['conditions'];
         }
     }
-    protected function ticketRequest(): void 
+    public function execQuery(): void 
     {
-        $request = (object) $this->request;
-        dd($this->values);
+        $values = (object) $this->request->values;
+        dd($values);
+        $code = $values->ticket_code;
+        $reporter = $values->reporter;
+        $assignee = $values->assignee;
 
         // return returnResponse("asdasd",200);
         
+    }
+    protected function insertTicketDetails($code,$details){
+
     }
     public function generateCode(): void
     {
