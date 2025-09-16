@@ -12,8 +12,8 @@ return new class extends Migration
     public function up(): void
     {
 
-        if (!Schema::connection('sys_base')->hasTable('request_services')) {
-            Schema::connection('sys_base')->create('request_services', function (Blueprint $table) {
+        if (!Schema::connection('ticketing_sys')->hasTable('request_services')) {
+            Schema::connection('ticketing_sys')->create('request_services', function (Blueprint $table) {
                 $table->id();
                 $table->string('request');
                 $table->string('type');
