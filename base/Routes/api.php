@@ -10,4 +10,5 @@ Route::group(['middleware' => 'validation'], function () {
     Route::group(['middleware' => 'auth:api'], function () {
         Route::post('request', [RequestController::class, 'customRequest']);
     });
+    Route::post('grequest',[RequestController::class,'customRequest']);
 });
