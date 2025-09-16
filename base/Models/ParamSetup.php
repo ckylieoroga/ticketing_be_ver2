@@ -31,7 +31,46 @@ abstract class ParamSetup
         }
         catch (\Exception){return false;}
     }
+    public function filterResponse($response)
+    {
+        if (is_null($response)) return null;
+        if (!is_array($response) && !is_object($response)) return $response;
 
+        $commonFilters = ["created_at", "updated_at", "created_by", "updated_by",  "deleted_at"];
+        $tableFilters = [];
+
+        $filteredKeys = data_get($tableFilters, $this->table, []);
+        $filteredKeys = empty($filteredKeys) ? $commonFilters : $filteredKeys;
+
+        $filteredResponse = [];
+
+        foreach ($response as $key => $value) {
+            if ($key === "details") {
+                $filteredResponse[$key] = $value;
+                continue;
+            }
+
+            if ((is_array($value) && array_is_list($value)) || $value instanceof Collection) {
+                $newArray = [];
+                foreach ($value as $object) {
+                    if (is_array($object) || is_object($object)) $newArray[] = (object) $this->filterResponse($object);
+                    else $newArray[] = $object;
+                }
+
+                $filteredResponse[$key] = $newArray;
+            } else if ($value instanceof Model) {
+                $filteredResponse[$key] = $this->filterResponse($value->toArray());
+            } else if (is_object($value) && !($value instanceof Collection)) {
+                $filteredResponse[$key] = (object) $this->filterResponse($value);
+            } else if (is_array($value) && !array_is_list($value)) {
+                $filteredResponse[$key] = $this->filterResponse($value);
+            } else if (!in_array($key, $filteredKeys)) {
+                $filteredResponse[$key] = $value;
+            }
+        }
+
+        return $filteredResponse;
+    }
     public function execQuery() : void
     {
         try{
