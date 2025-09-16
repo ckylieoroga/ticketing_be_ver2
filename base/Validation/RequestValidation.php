@@ -31,6 +31,7 @@ class RequestValidation
 
     private function requestParamValidation() : Response {
         if($this->endpoint === "gateway/auth") return $this->response;
+        if($this->endpoint === "gateway/grequest") return $this->getParamValidation();
         if (Auth::check()) return $this->getParamValidation();
         else return returnResponse(null, 401);
     }
