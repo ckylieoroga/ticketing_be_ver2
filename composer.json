@@ -25,6 +25,7 @@
             "App\\": "app/",
             "Base\\": "base/",
             "Ticket\\": "ticket/",
+            "Options\\":"options/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"
         },

@@ -9,22 +9,9 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Carbon\Carbon;
 
 class Ticket{
-
-    private $ticket_code;
-    public function __construct($code) {
-        
-    }
-
-    public function issueNewTicket($details){
-        DB::beginTransaction();
-
-
-        DB::commit();
-    }
-    protected function checkIfTicketExist(){
-
-    }
+   
 }
 

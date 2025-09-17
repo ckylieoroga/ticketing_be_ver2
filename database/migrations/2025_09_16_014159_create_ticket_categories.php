@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -20,6 +21,12 @@ return new class extends Migration
                 $table->timestamps();
                 $table->softDeletes();
             });
+
+            DB::table('ticket_categories')->insert([
+                ['code' => 'I','ticket_type' => '','description' => 'Incident Tickets'],
+                ['code' => 'S','ticket_type' => '','description' => 'Service Request Tickets'],
+                ['code' => 'C','ticket_type' => '','description' => 'Change Request Tickets']
+            ]);
         }
     }
 /**  Incident Tickets
