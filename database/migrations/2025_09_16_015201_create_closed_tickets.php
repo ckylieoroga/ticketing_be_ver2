@@ -1,0 +1,37 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        if (!Schema::hasTable('closed_tickets')) {
+            Schema::create('closed_tickets', function (Blueprint $table) {
+                $table->id();
+                $table->string('ticket_code');
+                $table->string('title');
+                $table->string('assigned_to');
+                $table->string('ticket_type');
+                $table->string('ticket_status')->default('closed');
+                $table->text('solution');
+                $table->text('comments')->nullable();
+                $table->timestamps();
+                $table->softDeletes();
+            });
+        }
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('closed_tickets');
+    }
+};

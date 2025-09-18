@@ -67,7 +67,7 @@ return [
             'url' => env('DATABASE_URL'),
             'host' => env('DB_HOST', '127.0.0.1'),
             'port' => env('DB_PORT', '3306'),
-            'database' => 'ticketing_sys',
+            'database' =>env('DB_SYS_NAME','ticketing_sys') ,
             'username' => env('DB_USERNAME_BASE', 'kylie_elite'),
             'password' => env('DB_PASSWORD_BASE', 'sample1234'),
             'unix_socket' => env('DB_SOCKET', ''),
