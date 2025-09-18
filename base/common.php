@@ -3,7 +3,8 @@
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 
-function returnResponse($data, $code) : JsonResponse {
+function returnResponse($data, $code): JsonResponse
+{
     $parsedResponse = (new \Base\Component\ResponseParser($code))->response();
     $response = [
         'statusCode' => $parsedResponse['code'],
@@ -11,52 +12,106 @@ function returnResponse($data, $code) : JsonResponse {
         'responseStatus' => $parsedResponse['message'],
         'responseId' => session()->getId(),
         'responseTime' => date('Y-m-d H:i:s'),
-        'data' => $data,
+        'data' => $code >= 400 && $code !== 422 ? $data["response_message"] : $data,
     ];
+
+    if (in_array(config("app.env"), DEBUG_PHASE) && $code >= 400) {
+        $response["error_details"] = $data;
+    }
+
     return response()->json($response, $parsedResponse['httpCode']);
 }
 
-function tokenExpiry() : int {
+function exceptionMessage(Exception $ex, $errorCode = null)
+{
+    $error = [];
+    $error["code"] = $ex->getCode();
+    $error["response_message"] = $errorCode === 500 ? "Server Error" : $ex->getMessage();
+    $error["message"] = $ex->getMessage();
+    $error["file"] = $ex->getFile();
+    $error["line"] = $ex->getLine();
+    $error["trace"] = $ex->getTrace();
+
+    return $error;
+}
+
+function tokenExpiry(): int
+{
     return env("TOKEN_EXPIRATION", 120);
 }
 
-function addToLogs($data, $type) : string {
-    if($data['code'] === 0) unset($data['data']);
-    return createLogs($data,$type);
+function addToLogs($data, $type): string
+{
+    if ($data['code'] === 0) unset($data['data']);
+    return createLogs($data, $type);
 }
 
-function createLogs($request, $type) : string {
+function createLogs($request, $type): string
+{
     $log = new \Base\Models\Logs($request, $type);
     return $log->addLog();
 }
 
-function requestException() : array{
-    return [["none"],["change"]];
+function requestException(): array
+{
+    return [["none"], ["change"]];
 }
 
-function parseToColumnName($column) : String {
+function parseDetails($result)
+{
+    $var = [];
+
+    if (!isset($result->details)) throw new Exception("Encountered object with no details property.",);
+
+    foreach ($result->details as $detail) {
+        if (!is_null($detail->category)) {
+            if (!array_key_exists($detail->category, $var)) $var[$detail->category] = [];
+            if (is_null($detail->sub_category)) {
+                $var[$detail->category][$detail->type] = $detail->value;
+            } else {
+                if (!array_key_exists($detail->sub_category, $var[$detail->category])) $var[$detail->category][$detail->sub_category] = [];
+                $var[$detail->category][$detail->sub_category][$detail->type] = $detail->value;
+            }
+        } else {
+            $var[$detail->type] = $detail->value;
+        }
+    }
+
+    $result->details = (object) $var;
+}
+
+function parseToColumnName($column): String
+{
     $column = preg_replace('/([a-z])([A-Z])/', '$1_$2', $column);
     return strtolower($column);
 }
 
-function parseColumns($sections): array {
+function parseColumns($sections): array
+{
     $parsedSection = [];
-    foreach($sections as $key => $value) $parsedSection[parseToColumnName($key)] = $value;
+    foreach ($sections as $key => $value) $parsedSection[parseToColumnName($key)] = $value;
     return $parsedSection;
 }
 
-function dateParse($date, $format) : string {
+
+
+function dateParse($date, $format): string
+{
     return Carbon::parse($date)->format($format);
 }
 
-function getCurrencies() : array {
+function getCurrencies(): array
+{
     return (new Base\Auth\AuthController)->currencies();
 }
 
-function createTransactionLogs($data) : ?string {
+function createTransactionLogs($data): ?string
+{
     $log = new \Base\Models\Logs($data, '');
     return $log->addTransactionLog();
 }
+
+const DEBUG_PHASE = ["development", "staging"];
 
 const HIDDEN_RESPONSE_FIELDS = [
     'coa' => ['created_at', 'updated_at', 'deleted_at', 'id'],
@@ -99,23 +154,28 @@ function DBActions($action): string
 {
     $actions = [
         'add' => 'dbInsert',
+        'register'  => 'dbInsert',
+        'register_to_client' => 'dbInsert',
         'update' => 'dbUpdate',
         'get' => 'dbGet',
         'all' => 'dbGetAll',
         'list' => 'dbGetAll',
         'delete' => 'dbDelete',
+        'vehicle_field_search' => 'dbGetAll',
+        'tin_number_search' => 'dbGetAll',
+        'search_client' => 'dbGetAll'
     ];
     return $actions[$action];
 }
 
 function filterResponseFields($table): array
 {
-    return HIDDEN_RESPONSE_FIELDS[$table];
+    return HIDDEN_RESPONSE_FIELDS[$table] ?? [];
 }
 
 function filterRequestFields($table): array
 {
-    return HIDDEN_REQUEST_FIELDS[$table];
+    return HIDDEN_REQUEST_FIELDS[$table] ?? [];
 }
 
 function formatAccountingCurrency($value): string
@@ -124,5 +184,3 @@ function formatAccountingCurrency($value): string
     else $value = number_format($value, 2, '.', ',');
     return $value;
 }
-
-
