@@ -17,6 +17,7 @@ class SetupController extends ParamSetup
     protected ?string $table;
     protected ?string $type;
     protected ?array $values;
+    protected $user;
     protected ?array $conditions;
     protected ?string $sort = null;
     protected ?int $limit = 0;
@@ -31,13 +32,13 @@ class SetupController extends ParamSetup
     {
         $this->request = $request;
         //TODO : modify request here
-
-
         if ($this->setTables()) {
             try {
                 $this->querySetter();
                 $this->generateParams();
-
+                if ($this->table === 'ticket_request' && in_array($this->type, ['all', 'list', 'get'])) {
+                    return returnResponse($this->responseParser(), 200);
+                }
                 $this->execQuery();
             } catch (\Exception $ex) {
                 return returnResponse(exceptionMessage($ex), 500);
@@ -52,10 +53,12 @@ class SetupController extends ParamSetup
         $this->type = $request['type'];
         if ($request['type'] === 'add') {
             $this->values = $request['values'];
+            $this->generateCode();
+//            $this->insertUserName();
         } else if ($request['type'] === 'update') {
             $this->conditions = $request['conditions'];
             $this->values = $request['values'];
-        } else if (in_array($request['type'], ['delete', 'list'])) {
+        } else if (in_array($request['type'], ['delete', 'list', 'get'])) {
             $this->conditions = $request['conditions'];
         }
 
@@ -85,13 +88,106 @@ class SetupController extends ParamSetup
 
         $this->request->merge(['values' => $this->values]);
     }
-    private function responseParser(): array
+
+//    private function TicketTypes()
+//    {
+//        $typeQuery = DB::table('ticket_request')
+////            ->leftJoin('assignment', 'ticket_request.ticket_code', '=', 'assignment.ticket_code')
+//            ->leftJoin('tbl_general_options as type_options', 'ticket_request.type', '=', 'type_options.code')
+//            ->leftJoin('tbl_general_options as priority_options', 'ticket_request.priority_level', '=', 'priority_options.code')
+//            ->leftJoin('tbl_general_options as status_options', 'ticket_request.status', '=', 'status_options.code')
+//            ->select(
+//                'ticket_request.*',
+//                'type_options.value as type_name',
+//                'priority_options.value as priority_name',
+//                'status_options.value as status_name'
+//            )
+//            ->where('type_options.type', 'type')
+//            ->where('priority_options.type', 'priority')
+//            ->where('status_options.type', 'status');
+//
+//        // updated condition handler
+//        if (!empty($this->conditions)) {
+//            foreach ($this->conditions as $field => $value) {
+//                if (str_contains($field, '.')) {
+//                    $typeQuery->where($field, $value);
+//                } else {
+//                    $typeQuery->where("ticket_request.$field", $value);
+//                }
+//            }
+//        }
+
+        private function TicketTypes()
     {
-        return $this->filterResponse($this->response);
+        $typeQuery = DB::table('ticket_request')
+            ->leftJoin('tbl_general_options as type_options', function($join) {
+                $join->on('ticket_request.type', '=', 'type_options.code')
+                    ->where('type_options.type', '=', 'type');
+            })
+            ->leftJoin('tbl_general_options as priority_options', function($join) {
+                $join->on('ticket_request.priority_level', '=', 'priority_options.code')
+                    ->where('priority_options.type', '=', 'priority');
+            })
+            ->leftJoin('tbl_general_options as status_options', function($join) {
+                $join->on('ticket_request.status', '=', 'status_options.code')
+                    ->where('status_options.type', '=', 'status');
+            })
+            ->select(
+                'ticket_request.*',
+                'type_options.value as type_name',
+                'priority_options.value as priority_name',
+                'status_options.value as status_name'
+            );
+
+        // updated condition handler
+        if (!empty($this->conditions)) {
+            foreach ($this->conditions as $field => $value) {
+                if (str_contains($field, '.')) {
+                    $typeQuery->where($field, $value);
+                } else {
+                    $typeQuery->where("ticket_request.$field", $value);
+                }
+            }
+        }
+
+        return $typeQuery->get();
     }
+
+    private function responseParser(): mixed
+    {
+        if ($this->table === 'ticket_request') {
+            if ($this->type == 'all' || $this->type == 'get') {
+                return $this->TicketTypes();
+            }
+        }
+            return $this->filterResponse($this->response);
+    }
+
+
+//    private function getUser() {
+//        $this->user = DB::table('system_users')->where('user_name', Auth::user()->name)->first();
+//    }
+////    private function insertUserName ()
+////    {
+////            if (Schema::hasColumn($this->table, 'user_name')) {
+////                $this->getUser();
+////            }
+////        }
+//
+//    private function insertUserName()
+//    {
+//        if (Schema::hasColumn($this->table, 'user_name')) {
+//            $userData = [
+//                'user_name' => Auth::user()->user_name,
+//            ];
+//            DB::table($this->table)->insert($userData);
+//        }
+//    }
+
 
     private function setTables(): bool
     {
+
         $request = $this->request;
         $requestQuery = $request['request'];
         $table = RequestServices::query()->where([
