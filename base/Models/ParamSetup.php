@@ -39,7 +39,7 @@ abstract class ParamSetup
         $commonFilters = ["created_at", "updated_at", "created_by", "updated_by",  "deleted_at"];
         $tableFilters = [];
 
-        $filteredKeys = data_get($tableFilters, $this->table, []);
+        $filteredKeys = data_get($tableFilters, $this->table, HIDDEN_RESPONSE_FIELDS[$this->table]);
         $filteredKeys = empty($filteredKeys) ? $commonFilters : $filteredKeys;
 
         $filteredResponse = [];

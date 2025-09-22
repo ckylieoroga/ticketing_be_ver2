@@ -101,6 +101,7 @@ const HIDDEN_RESPONSE_FIELDS = [
     'tbl_ticket_count' => ['created_at','updated_at','id'],
     'tbl_ticket_comment' => ['created_at','updated_at','id'],
     'tbl_ticket_category' => ['created_at','updated_at','id'],
+    'general_options' => ['id' , 'updated_at','created_at']
 ];
 
 const HIDDEN_REQUEST_FIELDS = [
