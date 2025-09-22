@@ -11,16 +11,19 @@ return new class extends Migration
      */
     public function up(): void
     {
+
         Schema::create('tbl_general_options', function (Blueprint $table) {
             $table->id();
             $table->string('code');
             $table->string('type');
             $table->string('value');
             $table->string('status');
-            $table->string('old_id')->nullable();
+            $table->string('created_by');
+            $table->string('updated_by');
             $table->timestamps();
         });
     }
+
 
     /**
      * Reverse the migrations.
