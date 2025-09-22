@@ -59,38 +59,40 @@ class AuthController extends Controller
         return $return;
     }
 
-    public function userRegistration($user) : JRes {
+    public function userRegistration(Request $request) : JRes {
         $pass = $this->generateDefaultPassword(8);
+        $user = $request->input("values");
         try {
             $credentials = $this->parseUserCredentials($pass);
-            $create = New SystemUsers();
-            $create->first_name = $user['first_name'];
-            $create->middle_name = $user['middle_name'] ?? '';
-            $create->last_name = $user['last_name'];
+
+            $create = new SystemUsers();
+            $create->first_name = $user['firstName'];
+            $create->middle_name = $user['middleName'] ?? '';
+            $create->last_name = $user['lastName'];
             $create->user_name = $credentials['userName'];
-            $create->custom_user_name = $user['user_name'];
+            $create->custom_user_name = $user['userName'];
             $create->secret_key = $credentials['userKey'];
             $create->suffix = $user['suffix'] ?? null;
-            $create->salutation = $user['salutation'];
             $create->gender = $user['gender'];
             $create->birthday = $user['birthday'];
             $create->email = $user['email'];
-            $create->contact_num = $user['contact'] ?? null;
             $create->department = $user['department'];
-            $create->designation = $user['designation'];
-            $create->employment_status = $user['employment_status'];
-            $create->system = $user['system'] ?? null;
+            $create->designation = $user['designation'] ?? 1;
+            $create->employment_status = $user['employmentStatus'];
             $create->max_tokens = 999;
-            $create->status = $user['status'];
+            $create->status = $user['status'] ?? 1;
+            $create->user_type = 'CL';
+
             $create->save();
 
             $cred = new UserCredentials();
             $cred->name = $credentials['userName'];
             $cred->password = $credentials['userPassword'];
             $cred->save();
+
             return returnResponse(["password" => $pass], 200);
-        }
-        catch (\Exception $e){
+
+        } catch (\Exception $e) {
             return returnResponse($e->getMessage(), 422);
         }
     }
