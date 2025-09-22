@@ -29,9 +29,9 @@ function exceptionMessage(Exception $ex, $errorCode = null)
     return $error;
 }
 
-//function tokenExpiry() : int {
-//    return env("TOKEN_EXPIRATION", 120);
-//}
+function tokenExpiry() : int {
+   return env("TOKEN_EXPIRATION", 120);
+}
 
 function addToLogs($data, $type) : string {
     if($data['code'] === 0) unset($data['data']);
