@@ -31,6 +31,7 @@ abstract class ParamSetup
         }
         catch (\Exception){return false;}
     }
+
     public function filterResponse($response)
     {
         if (is_null($response)) return null;
@@ -71,9 +72,40 @@ abstract class ParamSetup
 
         return $filteredResponse;
     }
-    public function execQuery() : void
+
+    public function saveDetails($tableDetails, $keyLabel, $mainKey, $details)
     {
-        try{
+        DB::table($tableDetails)->where([$keyLabel => $mainKey])->delete();
+
+        foreach ($details as $key => $object) {
+            if (is_array($object)) {
+                foreach ($object as $key2 => $object2) {
+                    if (is_array($object2)) {
+                        foreach ($object2 as $key3 => $value)
+                            $this->saveDetail($key3, $value, $mainKey, $keyLabel, $tableDetails, $key, $key2);
+                    } else $this->saveDetail($key2, $object2, $mainKey, $keyLabel, $tableDetails, $key);
+                }
+            } else $this->saveDetail($key, $object, $mainKey, $keyLabel, $tableDetails);
+        }
+    }
+
+    public function saveDetail($type, $value, $key, $keyLabel, $tableDetails, $category = null, $sub_category = null)
+    {
+        $values["value"] = $value;
+        $conditions = [];
+
+        $values[$keyLabel] = $key;
+        $values["category"] = $category;
+        $values["type"] = $type;
+        $values["sub_category"] = $sub_category;
+        if (Schema::hasColumn($tableDetails, "uuid")) $values["uuid"] = Str::uuid();
+
+        return (new DBQueries($tableDetails, $values, $conditions))->dbInsert();
+    }
+
+    public function execQuery(): void
+    {
+        try {
             $action = $this->action;
             $this->action = $action;
             $query = new DBQueries($this->table,$this->values,$this->conditions,$this->sort,$this->limit,$this->key);

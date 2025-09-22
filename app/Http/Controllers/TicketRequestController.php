@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-class SetupController extends ParamSetup
+class TicketRequestController extends ParamSetup
 {
     protected Request $request;
     protected ?string $table;
@@ -117,7 +117,7 @@ class SetupController extends ParamSetup
 //            }
 //        }
 
-        private function TicketTypes()
+    private function TicketTypes()
     {
         $typeQuery = DB::table('ticket_request')
             ->leftJoin('tbl_general_options as type_options', function($join) {
@@ -160,9 +160,8 @@ class SetupController extends ParamSetup
                 return $this->TicketTypes();
             }
         }
-            return $this->filterResponse($this->response);
+        return $this->filterResponse($this->response);
     }
-
 
 //    private function getUser() {
 //        $this->user = DB::table('system_users')->where('user_name', Auth::user()->name)->first();
@@ -177,12 +176,14 @@ class SetupController extends ParamSetup
 //    private function insertUserName()
 //    {
 //        if (Schema::hasColumn($this->table, 'user_name')) {
-//            $userData = [
-//                'user_name' => Auth::user()->user_name,
-//            ];
-//            DB::table($this->table)->insert($userData);
-//        }
+//            ($this->type === 'update') {
+//            $this->response = DB::connection('central_auth_db')
+//                ->table('system_users')
+//                ->where($this->conditions)
+//                ->update($this->values);
 //    }
+
+
 
 
     private function setTables(): bool
