@@ -15,23 +15,22 @@ function returnResponse($data, $code) : JsonResponse {
     ];
     return response()->json($response, $parsedResponse['httpCode']);
 }
-function exceptionMessage(Exception $ex)
-{
-    $error = $ex->getMessage();
 
-    if (in_array(config("app.env"), ["local", "development"])) {
-        $error = [];
-        $error["code"] = $ex->getCode();
-        $error["message"] = $ex->getMessage();
-        $error["file"] = $ex->getFile();
-        $error["line"] = $ex->getLine();
-        $error["trace"] = $ex->getTrace();
-    }
+function exceptionMessage(Exception $ex, $errorCode = null)
+{
+    $error = [];
+    $error["code"] = $ex->getCode();
+    $error["response_message"] = $errorCode === 500 ? "Server Error" : $ex->getMessage();
+    $error["message"] = $ex->getMessage();
+    $error["file"] = $ex->getFile();
+    $error["line"] = $ex->getLine();
+    $error["trace"] = $ex->getTrace();
 
     return $error;
 }
+
 function tokenExpiry() : int {
-    return env("TOKEN_EXPIRATION", 120);
+   return env("TOKEN_EXPIRATION", 120);
 }
 
 function addToLogs($data, $type) : string {
@@ -95,12 +94,6 @@ const HIDDEN_RESPONSE_FIELDS = [
     'tbl_templates' => ['created_at', 'created_by', 'updated_at', 'updated_by', 'deleted_at'],
     'tbl_diva_account_mapping' => ['created_at', 'created_by', 'updated_at', 'updated_by', 'deleted_at', 'id'],
     'tbl_reference_nums' => ['created_at', 'created_by', 'updated_at', 'updated_by', 'deleted_at', 'id'],
-    'tbl_tickets' => ['created_at','updated_at','id'],
-    'tbl_ticket_logs' => ['created_at','updated_at','id'],
-    'tbl_ticket_details' => ['created_at','updated_at','id'],
-    'tbl_ticket_count' => ['created_at','updated_at','id'],
-    'tbl_ticket_comment' => ['created_at','updated_at','id'],
-    'tbl_ticket_category' => ['created_at','updated_at','id'],
     'general_options' => ['id' , 'updated_at','created_at']
 ];
 
