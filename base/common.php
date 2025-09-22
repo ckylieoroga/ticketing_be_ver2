@@ -37,8 +37,20 @@ function exceptionMessage(Exception $ex, $errorCode = null)
 
 function tokenExpiry(): int
 {
-    return env("TOKEN_EXPIRATION", 120);
+    if (in_array(config("app.env"), ["local", "development"])) {
+        $error = [];
+        $error["code"] = $ex->getCode();
+        $error["message"] = $ex->getMessage();
+        $error["file"] = $ex->getFile();
+        $error["line"] = $ex->getLine();
+        $error["trace"] = $ex->getTrace();
+    }
+
+    return $error;
 }
+//function tokenExpiry() : int {
+//    return env("TOKEN_EXPIRATION", 120);
+//}
 
 function addToLogs($data, $type): string
 {
@@ -184,3 +196,5 @@ function formatAccountingCurrency($value): string
     else $value = number_format($value, 2, '.', ',');
     return $value;
 }
+
+

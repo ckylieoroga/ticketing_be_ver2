@@ -11,13 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-
-        if (!Schema::connection('ticketing_sys')->hasTable('namespace')) {
-            Schema::connection('ticketing_sys')->create('namespace', function (Blueprint $table) {
+        if (!Schema::hasTable('user_type')){
+            Schema::create('user_type', function (Blueprint $table) {
                 $table->id();
-                $table->string('namespace');
-                $table->integer('status');
+                $table->string('code')->unique();
+                $table->string('department'); // client, support, dev lead, dev
                 $table->timestamps();
+                $table->softDeletes();
             });
         }
     }
@@ -27,6 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::connection('sys_base')->dropIfExists('namespace');
+        Schema::dropIfExists('user_type');
     }
 };

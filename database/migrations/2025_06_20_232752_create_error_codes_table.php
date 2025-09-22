@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (!Schema::connection('sys_base')->hasTable('error_codes')){
-            Schema::connection('sys_base')->create('error_codes', function (Blueprint $table) {
+        if (!Schema::connection('ticketing_sys')->hasTable('error_codes')){
+            Schema::connection('ticketing_sys')->create('error_codes', function (Blueprint $table) {
                 $table->id();
                 $table->integer('code');
                 $table->string('message')->nullable();
