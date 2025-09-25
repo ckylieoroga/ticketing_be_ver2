@@ -24,7 +24,6 @@ class TicketServices extends ParamSetup
     protected ?string $sort = null;
     protected ?int $limit = 0;
     protected ?string $key = null;
-    private ?int $responseStatus = 200;
     private $ticketController;
    
     /**
@@ -45,17 +44,11 @@ class TicketServices extends ParamSetup
             } catch (Exception $ex) {
                 return returnResponse(exceptionMessage($ex), 500);
             }
-            return returnResponse($this->responseParser(), $this->responseStatus);
+            return returnResponse($this->responseParser(), 200);
         } else return returnResponse("Table Not Found", 400);
     }
-    public function execQuery(): void{
-        try {
-            DB::beginTransaction();
-                
-            DB::commit();
-        } catch (\Exception $ex) {
-            $this->response = $ex->getMessage(); 
-        }
+    private function assignedTicket(): void{
+
     }
     private function querySetter(): void
     {
@@ -65,8 +58,10 @@ class TicketServices extends ParamSetup
         $this->conditions = $request['conditions'] ?? null;
         $this->limit = $request['limit'] ?? null;
         if($this->type === 'add'){
-            list($this->values['ticket_code'],$ticket_number) = $this->ticketController->generateTicketCode($this->request['request'],$this->table);
-
+            switch ($this->request['request']) {
+                case 'assign':
+                   $this->values['status']  = $this->values['internalStatus'] = "1";
+            }
         }
     }
     private function responseParser(): mixed
