@@ -31,9 +31,18 @@ abstract class CommonQueries
         $params = $this->values;
         $params['created_at'] = date('Y-m-d H:i:s');
         $params['updated_at'] = date('Y-m-d H:i:s');
-        if(Schema::hasColumn($this->table, 'created_by')) $params['created_by'] = $this->user->custom_user_name;
+
+        if (Schema::hasColumn($this->table, 'created_by')) {
+            $params['created_by'] = $this->user->custom_user_name;
+        }
+
+        if (Schema::hasColumn($this->table, 'user_name')) {
+            $params['user_name'] = Auth::user()?->username ?? $this->user->user_name ?? null;
+        }
+
         return DB::table($this->table)->insertGetId($params);
     }
+
 
     public function update() : int
     {
