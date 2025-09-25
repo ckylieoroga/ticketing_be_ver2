@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (!Schema::connection('ticketing_sys')->hasTable('logs')) {
-            Schema::connection('ticketing_sys')->create('logs', function (Blueprint $table) {
+        if (!Schema::connection('sys_base')->hasTable('logs')) {
+            Schema::connection('sys_base')->create('logs', function (Blueprint $table) {
                 $table->id();
                 $table->string('code')->unique();
                 $table->string('username');

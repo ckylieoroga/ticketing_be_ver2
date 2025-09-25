@@ -25,13 +25,13 @@ class AuthController extends Controller
     public function registerAdmin() : JRes {
         $credentials = $this->parseUserCredentials('Qbs@2025');
         $create = New SystemUsers();
-        $create->first_name = env('ADMIN_FIRST_NAME');
-        $create->last_name = env('ADMIN_LAST_NAME');
+        $create->first_name = env('ADMIN_FIRST_NAME','admin');
+        $create->last_name = env('ADMIN_LAST_NAME','admin');
         $create->user_name = $credentials['userName'];
-        $create->custom_user_name = env('ADMIN_USERNAME');
-        $create->gender = env('ADMIN_GENDER');
-        $create->birthday = env('ADMIN_BIRTHDATE');
-        $create->email = env('ADMIN_EMAIL');
+        $create->custom_user_name = env('ADMIN_USERNAME','admin');
+        $create->gender = env('ADMIN_GENDER','M');
+        $create->birthday = env('ADMIN_BIRTHDATE','2002-06-22');
+        $create->email = env('ADMIN_EMAIL','hidlaojayvee18@gmail.com');
         $create->secret_key = $credentials['userKey'];
         $create->designation = 0;
         $create->max_tokens = 999;

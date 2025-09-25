@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 
 class AuthService
 {
@@ -35,6 +36,7 @@ class AuthService
                 $token->save();
                 $userDetails = $this->getUser()->toArray();
                 $userDetails['user_name'] = $userDetails['custom_user_name'];
+                $modules = json_encode($this->getUserModules());
                 unset($userDetails['id']);
                 unset($userDetails['max_tokens']);
                 unset($userDetails['custom_user_name']);
@@ -42,13 +44,13 @@ class AuthService
                     'token' => $tokenResult->accessToken,
                     'expiresAt' => Carbon::parse($token->expires_at)->toDateTimeString(),
                     'loggedUser' => $userDetails,
+                    'accessedModules' => $modules
                 ], 200);
             }
             return returnResponse(["response" => "Maximum number of token reached (".$this->getUser()->max_tokens.")"], 401);
         }
         else { return returnResponse(["response" => "Invalid Credentials"], 401);}
     }
-
     private function verify() {
         $user['name'] = null;
         $user['password'] = null;
@@ -145,5 +147,16 @@ class AuthService
 
     private function updateLastLogin() : bool {
         return SystemUsers::where('user_name', Auth::user()->name)->update(['last_login' => date('Y-m-d H:i:s')]);
+    }
+    private function getUserModules(){
+        return DB::table('tblMainMenu')->where('useraccess','LIKE',"%".(Auth::user()->user_type."%"))
+        ->get()->map(function($data){
+            return [
+                'label'=>$data->description,
+                'iconType'=>$data->iconType,
+                'icon'=>$data->icon,
+                'link'=>$data->linkName
+            ];
+        });
     }
 }

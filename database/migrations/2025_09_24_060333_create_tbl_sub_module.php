@@ -1,0 +1,35 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('tblSubModule', function (Blueprint $table) {
+            $table->id();
+            $table->string('Code');
+            $table->string('ModuleCode');
+            $table->string('Description');
+            $table->enum('IconType',['material','fas']);
+            $table->string('Icon');
+            $table->string('LinkName');
+            $table->string('UserAccess');
+            $table->integer('Sort');
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('tblSubModule');
+    }
+};

@@ -94,6 +94,8 @@ const HIDDEN_RESPONSE_FIELDS = [
     'tbl_templates' => ['created_at', 'created_by', 'updated_at', 'updated_by', 'deleted_at'],
     'tbl_diva_account_mapping' => ['created_at', 'created_by', 'updated_at', 'updated_by', 'deleted_at', 'id'],
     'tbl_reference_nums' => ['created_at', 'created_by', 'updated_at', 'updated_by', 'deleted_at', 'id'],
+    'general_options' => ['id' , 'updated_at','created_at'],
+    'tbl_assignment_personnel' =>  ['id' , 'updated_at','created_at'],
 ];
 
 const HIDDEN_REQUEST_FIELDS = [
