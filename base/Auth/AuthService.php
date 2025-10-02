@@ -149,8 +149,9 @@ class AuthService
         return SystemUsers::where('user_name', Auth::user()->name)->update(['last_login' => date('Y-m-d H:i:s')]);
     }
     private function getUserModules(){
-        return DB::table('tblMainMenu')->where('useraccess','LIKE',"%".(Auth::user()->user_type."%"))
+        return DB::table('tblMainMenu')->where('useraccess','LIKE',"%".(strtoupper(Auth::user()->user_type."%")))
         ->get()->map(function($data){
+            if(!$data) return [];
             return [
                 'label'=>$data->description,
                 'iconType'=>$data->iconType,

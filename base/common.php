@@ -139,5 +139,10 @@ function formatAccountingCurrency($value): string
     else $value = number_format($value, 2, '.', ',');
     return $value;
 }
+function conditionalValidator($validations){
+    foreach ($validations as $conditions => $error) {
+        if($conditions) exceptionMessage(throw new Exception($error, 500));
+    }
+}
 
 
