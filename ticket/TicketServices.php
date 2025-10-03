@@ -55,11 +55,12 @@ class TicketServices extends ParamSetup
     }
     private function execAssignTicket(): void{
         try {
-            $save = array();
+            $default = [ 'table' => 'tbl_ticket_trail' , 'condition' =>[ [ 'ticket_code' ,$this->conditions['ticket_code'] ] ] ];
+            $save = array( 'sortFunc' => (fn($table,$condition) => $this->getSortValue($table ? $table : $default['table'],$condition ? $condition : $default['condition']) ));
             $response = null;
             $user = $this->getUserDetails();
             $assignee = $user->custom_user_name;
-            $ticketCode = $this->conditions['ticket_code'] ?? null;
+            $ticketCode = $this->conditions['ticket_code'];
             $trailValues = fn($code,$assignee ,$status, $isInternal = true) =>  ['ticket_code' => $code , 'assignee' => $assignee , 'status' => $status , 'sort' => 0 ,'remarks' => '' , 'is_internal' => $isInternal];
             DB::beginTransaction();
                 if($this->type === "assign"){
@@ -104,7 +105,11 @@ class TicketServices extends ParamSetup
                     $response = "Ongoing Ticket.";
                 }else if($this->type === "resolved"){
                     $trailCount = DB::table('tbl_ticket_trail')->where('ticket_code',$ticketCode)->count();
-                    $status = 'R';
+                    $status = 'OG';
+                    $internalStatus = "R";
+                    // this is if client is satisfied with the result
+                    $checkIfResolveInternally = DB::table("tbl_assignment_personnel")->where("ticket_code",$ticketCode)->where('internal_status',$internalStatus)->first();
+                    if($checkIfResolveInternally) $status = $internalStatus; // change the client ticket status into 'R'
                     $save = [
                         'tbl_assignment_personnel' => [
                             'action' => 'update',
@@ -112,24 +117,32 @@ class TicketServices extends ParamSetup
                                 'ticket_code' => $ticketCode
                             ],
                             'values' => [
-                                'status' => "P",
-                                'internalStatus' => $status 
+                                'status' => $status, // wait for client confirmation before resolving the ticket
+                                'internal_status' => $internalStatus 
                             ]
                         ],
                         'tbl_ticket_trail' => [
                             'action' => 'add',
                             'values' => $trailValues($ticketCode,$assignee,$status),
-                            'count' => 1, // count of execution of the table
+                            'count' => 1, // count of another execution of the table
                             'count_start' => [ // changes in every execution ( index start at 0 )
-                                [ 'is_internal' => false ],
+                                [ 'is_internal' => false , 'status' => $status ],
                             ]
                         ],
                     ];
-                    $this->insertCloseOrResolveTicket($ticketCode);
-                    $this->insertCloseOrResolveTicket($ticketCode,true);
+                    if($checkIfResolveInternally){
+                        $save['tbl_ticket_trail'] = [
+                            'action' => 'add',
+                            'values' => $trailValues($ticketCode,$assignee,$status,false),
+                        ];
+                        // close and resolve the ticket after client response 
+                        $this->insertCloseOrResolveTicket($ticketCode);
+                        $this->insertCloseOrResolveTicket($ticketCode,true);
+                    }
                     $response = "Successfully resolved ticket.";
                 }else if($this->type === "return"){
-                    $status = "RT";
+                    $status = "O";
+                    $internalStatus = "RT";
                     $lastAssignee = DB::table("tbl_ticket_trail")->where('ticket_code',$ticketCode)->orderBy("sort",'desc')->first();
                     $save = [
                         "tbl_assignment_personnel" => [
@@ -138,8 +151,8 @@ class TicketServices extends ParamSetup
                                 'ticket_code' => $ticketCode
                             ],
                             'values' => [
-                                'status' => "O",
-                                'internalStatus' => $status 
+                                'status' => $status,
+                                'internal_status' => $internalStatus 
                             ],
                         ],
                         "tbl_ticket_trail" => [
@@ -147,11 +160,20 @@ class TicketServices extends ParamSetup
                             "values" => $trailValues($ticketCode,$lastAssignee->assignee,$status),
                         ]
                     ];
-                     $response = "Successfully return ticket.";
+                    $response = "Successfully return ticket.";
                 }else if($this->type === "reassign"){
                     $status = "RA";
                     $assigned_to = $this->conditions['assigned_to'];
                     $save = [
+                        "tbl_assignment_personnel" => [
+                            "action" => "update",
+                            "conditions" => [
+                                "ticket_code" => $ticketCode
+                            ],
+                            "values" => [
+                                "internal_assignee" => $assigned_to
+                            ]
+                        ],
                         "tbl_ticket_trail" => [
                             "action" => "add",
                             "values" =>  $trailValues($ticketCode,$assigned_to,$status),
@@ -159,7 +181,7 @@ class TicketServices extends ParamSetup
                     ];
                     $response = "Successfully reassign ticket.";
                 }
-                $this->runQuery($save);
+                $this->runMultipleQuery($save);
             DB::commit();
             $this->response = $response;
         } catch (\Exception $ex) {
@@ -187,7 +209,7 @@ class TicketServices extends ParamSetup
         if(!$isCloseTicket) $toSave['client_username'] = $ticketDetails->user_name;
         $query = DB::table($table)->insert($toSave);
     }
-    private function runQuery($save){
+    private function runMultipleQuery($save){
         foreach ($save as $table => $data){
             if(isset($data['values']['sort'])) $data['values']['sort'] = $this->getSortValue('tbl_ticket_trail',[ ['ticket_code',($data['values']['ticket_code'] ?? null )] ]);
             $query = new DBQueries($table,$data['values'] ?? null,$data['conditions'] ?? null);
@@ -212,17 +234,19 @@ class TicketServices extends ParamSetup
                         'originalValue' => $originalValue
                     ]
                 ];
-                $this->runQuery($toSave);
+                $this->runMultipleQuery($toSave);
             }
         }
     }
     private function getTicketRequest($ticket_code){
+        if(!$ticket_code) throw new Exception("Ticket Code is required", 401);
         return DB::table("ticket_request")->where('ticket_code',$ticket_code)->first();
     }
     private function getUserDetails(){
         return DB::table('system_users')->where('user_name', Auth::user()->name)->first();
     }
-    private function getSortValue($table,$condition){
+    private function getSortValue($table,$condition = []){
+        if(!$table) throw new Exception("Table name is required", 401);
         return DB::table($table)->where($condition)->count() + 1;
     }
     private function querySetter(): void
