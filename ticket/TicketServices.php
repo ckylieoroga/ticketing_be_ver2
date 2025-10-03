@@ -65,6 +65,7 @@ class TicketServices extends ParamSetup
                 if($this->type === "assign"){
                     $ticketDetails = $this->getTicketRequest($ticketCode);
                     $status = 'O';
+                    if($this->conditions['assigned_to']) $assignee = $this->conditions['assigned_to'];
                     $save = [
                         'tbl_assignment_personnel' => [
                             'values' => [
