@@ -149,14 +149,19 @@ class AuthService
         return SystemUsers::where('user_name', Auth::user()->name)->update(['last_login' => date('Y-m-d H:i:s')]);
     }
     private function getUserModules(){
-        return DB::table('tblMainMenu')->where('useraccess','LIKE',"%".(strtoupper(Auth::user()->user_type."%")))
+        $user = $this->getUser();
+        return DB::table('tblMenuList')->where('roles','LIKE',"%".(strtoupper($user->user_type."%")))
         ->get()->map(function($data){
             if(!$data) return [];
             return [
-                'label'=>$data->description,
+                'path' => $data->path,
+                'name' => $data->name,
+                'component' => '../'.preg_replace('/\./', '/', $data->componentLink).'.vue',
+                'children' => [],
+                'label'=>$data->title,
                 'iconType'=>$data->iconType,
                 'icon'=>$data->icon,
-                'link'=>$data->linkName
+                'show' => $data->isShow ?? false
             ];
         });
     }
