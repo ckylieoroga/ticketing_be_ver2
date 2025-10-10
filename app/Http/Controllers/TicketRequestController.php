@@ -44,9 +44,9 @@ class TicketRequestController extends ParamSetup
                 $this->generateParams();
 
 
-                if (!$this->isAuthorized($this->table, $this->type)) {
-                    return returnResponse("Unauthorized access to '{$this->type}' on '{$this->table}'", 403);
-                }
+                // if (!$this->isAuthorized($this->table, $this->type)) {
+                //     return returnResponse("Unauthorized access to '{$this->type}' on '{$this->table}'", 403);
+                // }
                 if ($this->table === 'ticket_request' && in_array($this->type, ['all', 'list', 'get'])) {
                     return returnResponse($this->responseParser(), 200);
                 }
