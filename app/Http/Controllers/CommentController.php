@@ -53,7 +53,7 @@ class CommentController extends ParamSetup
         $this->type = $request['type'];
         if ($request['type'] === 'add') {
             $this->values = $request['values'];
-            $this->checkComment();
+//            $this->checkComment();
         } else if ($request['type'] === 'update') {
             $this->conditions = $request['conditions'];
             $this->values = $request['values'];
@@ -68,17 +68,17 @@ class CommentController extends ParamSetup
     }
 
 
-    private function checkComment()
-    {
-        $ticketExists = DB::table('ticket_request')
-            ->where('ticket_code', $this->request['values']['ticket_code'])
-            ->exists();
-
-        if (!$ticketExists) {
-            return false;
-
-        }
-    }
+//    private function checkComment()
+//    {
+//        $ticketExists = DB::table('ticket_request')
+//            ->where('ticket_code', $this->request['values']['ticket_code'])
+//            ->exists();
+//
+//        if (!$ticketExists) {
+//            return false;
+//
+//        }
+//    }
     private function setTables(): bool
     {
 
