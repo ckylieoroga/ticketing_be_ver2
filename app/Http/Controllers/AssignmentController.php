@@ -27,8 +27,8 @@ class AssignmentController extends ParamSetup
     private ?array $details = [];
 
 
-    private ?string $code = "";
-
+    private ?string $code = null;
+    private ?string $updateType;
     /**
      * @throws \Exception
      */
@@ -41,11 +41,10 @@ class AssignmentController extends ParamSetup
 
                 $this->querySetter();
                 $this->generateParams();
-                if($this->type === 'add') $this->acceptTicket();
-                else $this->execQuery();
+                $this->execQuery();
 
             } catch (\Exception $ex) {
-                return returnResponse(exceptionMessage($ex), 500);
+                throw $ex;
             }
             return returnResponse($this->responseParser(), 200);
         } else return returnResponse("Table Not Found", 400);
@@ -55,19 +54,54 @@ class AssignmentController extends ParamSetup
     {
         $request = $this->request;
         $this->type = $request['type'];
-        if ($request['type'] === 'add') {
-            $this->values = $request['values'];
-            $this->code =  $this->request['values']['ticket_code'] ?? null;
-            $this->isAuthorized($this->table, $this->type);
-        } else if ($request['type'] === 'update') {
-            $this->conditions = $request['conditions'];
-            $this->values = $request['values'];
-        } else if (in_array($request['type'], ['delete', 'list', 'get'])) {
-            $this->conditions = $request['conditions'];
+        $this->values = $request['values'];
+        $this->conditions = $request['conditions'] ?? null;
+        $this->code =  $this->values['ticket_code'] ?? $this->conditions['ticket_code'] ?? null;
+        $this->updateType = $this->values['type'] ?? $this->conditions['type'] ?? null;
+       if(in_array($this->type,['add','update'])) $this->validations();
+    }
+    public function execQuery():void{
+        try {
+            DB::beginTransaction();
+                if($this->type === "add") $this->acceptTicket();
+                else if($this->type === "update"){
+                    $trail = new TrailController($this->code,$this->values['assigned_to'] ?? null ,'');
+                    if($this->updateType === "RA"){
+                        $trail->status = $this->getTicketStatus('Open')->code ?? '';
+                        $trail->is_internal = true;
+                        $trail->remarks = "Reassign";
+                        $query = new DBQueries($this->table,[
+                            'internal_assignee' => $this->values['assigned_to'],
+                            'internal_disclaimer' => $this->values['remarks'] ?? null,
+                            'internal_status' => $this->getTicketStatus('Open')->code ?? ''
+                        ],
+                        [
+                            'ticket_code' => $this->code
+                        ]);
+                        $query->dbUpdate();
+                        $trail->executeTrail();
+                        $this->response = "Successfully reassign.";
+                    }
+                }
+            DB::commit();
+        } catch (\Exception $ex) {
+            throw $ex;
+        }
+    }
+    private function validations():void {
+        $userReg = $this->getUser();
+        $ticket = $this->getTicketDetails();
+        if($this->type === 'add'){
+            $assignment = DB::table('tbl_assignment_personnel')->where('ticket_code', $this->code)->exists();
+            if($assignment) throw new Exception("This ticket has already been assigned.", 401);
+        }else if($this->type === "update"){
+            //  RA = Re-assign
+            if($this->updateType === "RA"){
+                if(!isset($this->values['assigned_to'])) throw new Exception("Assigned to is required.", 401);
+            }
         }
     }
     private function acceptTicket(){
-        DB::beginTransaction();
             $ticket = $this->getTicketDetails();
             $user = $this->getUser();
             $query = new DBQueries($this->table,[
@@ -76,11 +110,11 @@ class AssignmentController extends ParamSetup
                 'assigned_to' => $user->custom_user_name,
                 'internal_assignee' => '',
                 'status' => $this->getTicketStatus('Open',false)->code ?? '',
-                'internal_status' => $this->getTicketStatus('Open')->code ?? '' 
+                'internal_status' =>  '' 
             ]);
             $query->dbInsert();
             $this->updateTicketStatus('Open');
-        DB::commit();
+            $this->response = "Successfully accepted ticket.";
     }
     private function updateTicketStatus($status): void{
          $query = new DBQueries('ticket_request',
@@ -90,67 +124,18 @@ class AssignmentController extends ParamSetup
             [
                 'ticket_code' => $this->code
             ]);
-        $query->dbUpdate();
+            $query->dbUpdate();
     }
-   
-    private function isAuthorized(string $table, string $type)
-    {
-
-        $userReg = $this->getUser();
-        if (!$userReg) return false;
-
-
-        if ($type === 'add') {
-            $assignmentCode = $this->request['values']['ticket_code'] ?? null;
-            if (!$assignmentCode) return false;
-
-            //check if the ticket_code is already exiting in the table assignment or has been assigned
-            $assignment = DB::table('tbl_assignment_personnel')
-                ->select('ticket_code')
-                ->where('ticket_code', $assignmentCode)
-                ->first();
-
-            if ($assignment) {
-                throw new \Exception("This ticket has already been assigned.");
-            } else {
-                return true;
-            }
-        }
-
-        //only currently logged in assigned_to person can update the assigned_to ticket
-        if ($type === 'update' && $table === 'assignment') {
-            $assignmentCode = $this->request['conditions']['ticket_code'] ?? null;
-            if (!$assignmentCode) return false;
-
-            $result = DB::table('ticket_request AS t')
-                ->leftJoin('tbl_assignment_personnel AS a', 't.ticket_code', '=', 'a.ticket_code')
-                ->where('t.ticket_code', $assignmentCode)
-                ->where('a.assigned_to', $userReg->user_name)
-                ->select('t.ticket_code')
-                ->first();
-
-            return (bool)$result;
-        }
-    }
-    private function responseParser(): mixed
-    {
-        return $this->filterResponse($this->response);
-    }
-    private function getTicketStatus($status,$isInternal = true , $increment = false){
-        if($increment) $status = DB::table("tbl_status_list")->where('description',ucfirst($status))->where('isInternal',$isInternal)->select('sort','code','description')->first();
-        
+    private function getTicketStatus($status,$isInternal = true ){
         return DB::table('tbl_general_options as go')->select('value','go.code')
                 ->join('tbl_status_list as sl','sl.code','go.code')
                 ->where('type','ticket_status')
                 ->where('sl.isInternal',$isInternal)
-                ->when($increment,function($query) use($status){
-                    if(isset($status) && $status) $query->where('sl.sort',$status->sort + 1);
-                })
                 ->where('value',$status)->first();
     }
     private function getTicketDetails(){
-        if(!$this->code) return;
-        return DB::table('ticket_request as tr')->join('ticket_details as dt','dt.ticket_code','tr.ticket_code')
+        if(!$this->code) throw new Exception("Ticket code required.", 400);
+        $ticket = DB::table('ticket_request as tr')->leftJoin('ticket_details as dt','dt.ticket_code','tr.ticket_code')
                 ->join('tbl_general_options as go','go.code','tr.status')
                 ->select(
                     'dt.ticket_code as code',
@@ -164,6 +149,52 @@ class AssignmentController extends ParamSetup
                 )
                 ->where('tr.ticket_code',$this->code)
                 ->first();
+        if(!$ticket) throw new Exception("Ticket does not exist.", 401);
+        return $ticket;
+        
+    }
+        // private function isAuthorized(string $table, string $type)
+    // {
+
+    //     $userReg = $this->getUser();
+    //     if (!$userReg) return false;
+
+
+    //     if ($type === 'add') {
+    //         $assignmentCode = $this->request['values']['ticket_code'] ?? null;
+    //         if (!$assignmentCode) return false;
+
+    //         //check if the ticket_code is already exiting in the table assignment or has been assigned
+    //         $assignment = DB::table('tbl_assignment_personnel')
+    //             ->select('ticket_code')
+    //             ->where('ticket_code', $assignmentCode)
+    //             ->first();
+
+    //         if ($assignment) {
+    //             throw new \Exception("This ticket has already been assigned.");
+    //         } else {
+    //             return true;
+    //         }
+    //     }
+
+    //     //only currently logged in assigned_to person can update the assigned_to ticket
+    //     if ($type === 'update' && $table === 'assignment') {
+    //         $assignmentCode = $this->request['conditions']['ticket_code'] ?? null;
+    //         if (!$assignmentCode) return false;
+
+    //         $result = DB::table('ticket_request AS t')
+    //             ->leftJoin('tbl_assignment_personnel AS a', 't.ticket_code', '=', 'a.ticket_code')
+    //             ->where('t.ticket_code', $assignmentCode)
+    //             ->where('a.assigned_to', $userReg->user_name)
+    //             ->select('t.ticket_code')
+    //             ->first();
+
+    //         return (bool)$result;
+    //     }
+    // }
+    private function responseParser(): mixed
+    {
+        return $this->filterResponse($this->response);
     }
     private function setTables(): bool
     {
@@ -180,6 +211,7 @@ class AssignmentController extends ParamSetup
         return false;
     }
     private function getUser(){
+        if(!Auth::check()) throw new Exception("No user login found.", 401);
         $user = Auth::user();
         return SystemUsers::where('user_name', $user->name)->first();
     }
