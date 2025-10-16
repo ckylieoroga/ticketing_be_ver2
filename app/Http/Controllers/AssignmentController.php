@@ -41,7 +41,8 @@ class AssignmentController extends ParamSetup
 
                 $this->querySetter();
                 $this->generateParams();
-                $this->execQuery();
+                if($this->type === 'add') $this->acceptTicket();
+                else $this->execQuery();
 
             } catch (\Exception $ex) {
                 return returnResponse(exceptionMessage($ex), 500);
@@ -56,6 +57,7 @@ class AssignmentController extends ParamSetup
         $this->type = $request['type'];
         if ($request['type'] === 'add') {
             $this->values = $request['values'];
+            $this->code =  $this->request['values']['ticket_code'] ?? null;
             $this->isAuthorized($this->table, $this->type);
         } else if ($request['type'] === 'update') {
             $this->conditions = $request['conditions'];
@@ -64,12 +66,37 @@ class AssignmentController extends ParamSetup
             $this->conditions = $request['conditions'];
         }
     }
-
+    private function acceptTicket(){
+        DB::beginTransaction();
+            $ticket = $this->getTicketDetails();
+            $user = $this->getUser();
+            $query = new DBQueries($this->table,[
+                'ticket_code' => $this->code,
+                'assigned_from' => $ticket->assign_from,
+                'assigned_to' => $user->custom_user_name,
+                'internal_assignee' => '',
+                'status' => $this->getTicketStatus('Open',false)->code ?? '',
+                'internal_status' => $this->getTicketStatus('Open')->code ?? '' 
+            ]);
+            $query->dbInsert();
+            $this->updateTicketStatus('Open');
+        DB::commit();
+    }
+    private function updateTicketStatus($status): void{
+         $query = new DBQueries('ticket_request',
+            [
+            'status' => $this->getTicketStatus($status,false)->code ?? '',
+            ],
+            [
+                'ticket_code' => $this->code
+            ]);
+        $query->dbUpdate();
+    }
+   
     private function isAuthorized(string $table, string $type)
     {
 
-        $user = Auth::user();
-        $userReg = SystemUsers::where('user_name', $user->name)->first();
+        $userReg = $this->getUser();
         if (!$userReg) return false;
 
 
@@ -109,7 +136,35 @@ class AssignmentController extends ParamSetup
     {
         return $this->filterResponse($this->response);
     }
-
+    private function getTicketStatus($status,$isInternal = true , $increment = false){
+        if($increment) $status = DB::table("tbl_status_list")->where('description',ucfirst($status))->where('isInternal',$isInternal)->select('sort','code','description')->first();
+        
+        return DB::table('tbl_general_options as go')->select('value','go.code')
+                ->join('tbl_status_list as sl','sl.code','go.code')
+                ->where('type','ticket_status')
+                ->where('sl.isInternal',$isInternal)
+                ->when($increment,function($query) use($status){
+                    if(isset($status) && $status) $query->where('sl.sort',$status->sort + 1);
+                })
+                ->where('value',$status)->first();
+    }
+    private function getTicketDetails(){
+        if(!$this->code) return;
+        return DB::table('ticket_request as tr')->join('ticket_details as dt','dt.ticket_code','tr.ticket_code')
+                ->join('tbl_general_options as go','go.code','tr.status')
+                ->select(
+                    'dt.ticket_code as code',
+                    'tr.ticket_number as number',
+                    'tr.ticket_name as name',
+                    'tr.user_name as assign_from',
+                    'tr.description',
+                    'tr.status',
+                    'tr.priority_level',
+                    'go.value'
+                )
+                ->where('tr.ticket_code',$this->code)
+                ->first();
+    }
     private function setTables(): bool
     {
         $request = $this->request;
@@ -124,7 +179,10 @@ class AssignmentController extends ParamSetup
         }
         return false;
     }
-
+    private function getUser(){
+        $user = Auth::user();
+        return SystemUsers::where('user_name', $user->name)->first();
+    }
     public function setParams(): array
     {
         return [

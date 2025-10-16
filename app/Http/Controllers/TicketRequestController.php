@@ -88,6 +88,7 @@ class TicketRequestController extends ParamSetup
             $this->values = $request['values'];
         } else if (in_array($request['type'], ['delete', 'list', 'get'])) {
             $this->conditions = $request['conditions'];
+            $this->code = $this->conditions["ticket_code"] ?? null;
         }
     }
 
@@ -242,23 +243,24 @@ class TicketRequestController extends ParamSetup
                 'type_options.value as type_name',
                 'priority_options.value as priority_name',
                 'status_options.value as status_name',
-                'users.custom_user_name as custom_user_name'
+                'users.custom_user_name as custom_user_name',
+                'a.assigned_to as assignedTo',
+                
             );
-
 
         if ($userReg->user_type === 'AD') {
             $typeQuery->where('a.assigned_to', $userReg->user_name);
         } elseif ($userReg->user_type === 'CL') {
             $typeQuery->where('ticket_request.user_name', $userReg->user_name);
         }
-
+        if($this->code && $this->type === 'get') return $typeQuery->where('ticket_request.ticket_code',$this->code)->first();
         return $typeQuery->get();
     }
 
     private function responseParser(): mixed
     {
         if ($this->table === 'ticket_request') {
-            if ($this->type == 'all') {
+            if (in_array($this->type,['get','all'])) {
                 return $this->TicketTypes();
             }
         }
