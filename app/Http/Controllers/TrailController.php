@@ -30,7 +30,7 @@ class TrailController
     }
     public function executeTrail(): void{
         try {
-            if(!$this->assginee) throw new Exception("Assigned to is required", 401);
+            if(!$this->assignee) throw new Exception("Assigned to is required", 401);
             $this->query();
         } catch (\Exception $ex) {
             throw $ex;
@@ -43,7 +43,7 @@ class TrailController
     }
     private function generateParams(): array {
         return [
-             'ticket_code' => $this->code,
+            'ticket_code' => $this->code,
             'assignee' => $this->assignee,
             'status' => $this->status,
             'sort' => $this->getTrailCount(),

@@ -245,6 +245,7 @@ class TicketRequestController extends ParamSetup
                 'status_options.value as status_name',
                 'users.custom_user_name as custom_user_name',
                 'a.assigned_to as assignedTo',
+                'a.internal_assignee'
                 
             );
 

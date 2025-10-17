@@ -69,7 +69,7 @@ class AssignmentController extends ParamSetup
                     if($this->updateType === "RA"){
                         $trail->status = $this->getTicketStatus('Open')->code ?? '';
                         $trail->is_internal = true;
-                        $trail->remarks = "Reassign";
+                        $trail->remarks =  $this->values['remarks'] ?? "Reassign";
                         $query = new DBQueries($this->table,[
                             'internal_assignee' => $this->values['assigned_to'],
                             'internal_disclaimer' => $this->values['remarks'] ?? null,
