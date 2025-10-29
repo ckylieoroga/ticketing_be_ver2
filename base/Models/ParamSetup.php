@@ -2,6 +2,9 @@
 
 namespace Base\Models;
 
+use Base\Tables\SystemUsers;
+use Illuminate\Support\Facades\Auth;
+
 abstract class ParamSetup
 {
     private string $action;
@@ -106,12 +109,20 @@ abstract class ParamSetup
     public function execQuery(): void
     {
         try {
+            $user = Auth::user();
+            if ($user) {
+                $userReg = SystemUsers::where('user_name', $user->name)->first();
+                if ($userReg && $userReg->user_type === 'DV' && $this->type === 'add') {
+                    $this->values['is_internal'] = 1;
+                }
+            }
+
             $action = $this->action;
             $this->action = $action;
-            $query = new DBQueries($this->table,$this->values,$this->conditions,$this->sort,$this->limit,$this->key);
+
+            $query = new DBQueries($this->table, $this->values, $this->conditions, $this->sort, $this->limit, $this->key);
             $this->response = $query->$action();
-        }
-        catch (\Exception $ex){
+        } catch (\Exception $ex) {
             $this->response = ['msg' => $ex->getMessage()];
             throw $ex;
         }

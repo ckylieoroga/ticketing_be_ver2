@@ -110,7 +110,7 @@ class AssignmentController extends ParamSetup
                 'assigned_to' => $user->custom_user_name,
                 'internal_assignee' => '',
                 'status' => $this->getTicketStatus('Open',false)->code ?? '',
-                'internal_status' =>  '' 
+                'internal_status' =>  ''
             ]);
             $query->dbInsert();
             $this->updateTicketStatus('Open');
@@ -151,7 +151,7 @@ class AssignmentController extends ParamSetup
                 ->first();
         if(!$ticket) throw new Exception("Ticket does not exist.", 401);
         return $ticket;
-        
+
     }
         // private function isAuthorized(string $table, string $type)
     // {

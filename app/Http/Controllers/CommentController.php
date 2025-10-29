@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Base\Tables\SystemUsers;
 use Exception;
 use Base\Models\ParamSetup;
 use Base\Tables\RequestServices;
@@ -31,15 +32,15 @@ class CommentController extends ParamSetup
     public function main(Request $request): JsonResponse
     {
         $this->request = $request;
+
         //TODO : modify request here
         if ($this->setTables()) {
             try {
                 $this->querySetter();
                 $this->generateParams();
-                if ($this->table === 'ticket_request' && in_array($this->type, ['all', 'list', 'get'])) {
-                    return returnResponse($this->responseParser(), 200);
-                }
                 $this->execQuery();
+                $this->isInternal();
+
             } catch (\Exception $ex) {
                 return returnResponse(exceptionMessage($ex), 500);
             }
@@ -53,32 +54,110 @@ class CommentController extends ParamSetup
         $this->type = $request['type'];
         if ($request['type'] === 'add') {
             $this->values = $request['values'];
-//            $this->checkComment();
+
         } else if ($request['type'] === 'update') {
             $this->conditions = $request['conditions'];
             $this->values = $request['values'];
-        } else if (in_array($request['type'], ['delete', 'list', 'get'])) {
+        } else if ($request['type'] === 'get') {
+            $this->conditions = $request['conditions'];
+//            $this->isAuthorized($this->table, $this->type);
+        } else if (in_array($request['type'], ['delete', 'list'])) {
             $this->conditions = $request['conditions'];
         }
 
     }
+
+    private function isAuthorized(string $table, string $type)
+    {
+        $user = Auth::user();
+        $userReg = SystemUsers::where('user_name', $user->name)->first();
+        if (!$userReg) return false;
+
+        // allow SP users to view comments without assignment
+        if ($type === 'list') {
+            if ($userReg->user_type === 'SP') {
+                $support = DB::table('tbl_comment')
+                    ->where($this->conditions)
+                    ->get();
+
+                return $support;
+            }
+
+            if ($userReg->user_type === 'DV') {
+                $ticketCode = $this->request['conditions']['ticket_code'] ?? null;
+
+                if (!$ticketCode) {
+                    return false;
+                }
+
+                $developerComments = DB::table('tbl_comment AS t')
+                    ->leftJoin('tbl_assignment_personnel AS a', 't.ticket_code', '=', 'a.ticket_code')
+                    ->leftJoin('system_users AS u', 't.created_by', '=', 'u.custom_user_name')
+                    ->where('t.ticket_code', $ticketCode)
+                    ->where('a.assigned_to', $userReg->user_name)
+                    ->where('t.is_internal', 1)
+                    ->where(function ($query) use ($userReg) {
+                        $query->where('t.created_by', $userReg->custom_user_name)
+                            ->orWhere('u.user_type', 'SP');
+                    })
+                    ->select('t.*')
+                    ->get();
+
+                return $developerComments;
+            }
+
+            if ($userReg->user_type === 'CL') {
+                $ticketCode = $this->request['conditions']['ticket_code'] ?? null;
+                if (!$ticketCode) return false;
+
+                // check if the ticket belongs to the client
+                $isOwner = DB::table('ticket_request')
+                    ->where('ticket_code', $ticketCode)
+                    ->where('user_name', $userReg->user_name)
+                    ->exists();
+
+                if (!$isOwner) return false;
+
+              // own comments OR SP comments
+                $client = DB::table('tbl_comment AS t')
+                    ->leftJoin('system_users AS u', 't.created_by', '=', 'u.custom_user_name')
+                    ->where('t.ticket_code', $ticketCode)
+                    ->where('t.is_internal', 0)
+                    ->where(function ($query) use ($userReg) {
+                        $query->where('t.created_by', $userReg->custom_user_name)
+                            ->orWhere('u.user_type', 'SP');
+                    })
+                    ->select('t.*')
+                    ->get();
+
+                return $client;
+            }
+        }
+    }
+
+    public function isInternal () : void
+    {
+        $user = Auth::user();
+        if ($user) {
+            $userReg = SystemUsers::where('user_name', $user->name)->first();
+            if ($userReg) {
+                if ($userReg->user_type === 'DV') {
+                    $this->values['is_internal'] = 1;
+
+                }
+            }
+        }
+    }
     private function responseParser(): mixed
     {
+        if ($this->table === 'tbl_comment') {
+            if ($this->type == 'list') {
+                return $this->isAuthorized($this->table, $this->type);
+            }
+        }
         return $this->filterResponse($this->response);
     }
 
-
-//    private function checkComment()
-//    {
-//        $ticketExists = DB::table('ticket_request')
-//            ->where('ticket_code', $this->request['values']['ticket_code'])
-//            ->exists();
-//
-//        if (!$ticketExists) {
-//            return false;
-//
-//        }
-//    }
     private function setTables(): bool
     {
 
