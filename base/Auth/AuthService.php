@@ -140,7 +140,16 @@ class AuthService
         else $response['msg'] = "Password do not match";
         return $response;
     }
-
+    public function getUserWithAccess($code){
+        $data = SystemUsers::query()
+                ->select(
+                    "system_users.*"
+                )
+                ->join("users_access as ua",'ua.code','system_users.access_codes')
+                ->where('system_users.access_codes','LIKE',"%$code%")
+                ->get()->toArray();
+        return returnResponse($data,200);
+    }
     public function getAllUser(){
         return SystemUsers::query()->select()->where('user_name', '!=', Auth::user()->name)->get();
     }
