@@ -307,4 +307,9 @@ class AuthController extends Controller
         }
         return $return;
     }
+    public function usersHasAccess(Request $request){
+        $data = $request->all();
+        $auth = New AuthService($request);
+        return $auth->getUserWithAccess($data['conditions']['code']);
+    }
 }
