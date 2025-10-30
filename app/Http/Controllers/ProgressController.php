@@ -57,10 +57,10 @@ class ProgressController extends ParamSetup{
         $this->limit = $request['limit'] ?? null;
         $this->code = $this->values['ticket_code'] ?? $this->conditions['ticket_code'] ?? null;
         $ticket = collect($this->getLatestAssignee());
+        $user = $this->getUser();
         if($this->type === "update"){
-            if(!empty($internal_status)) $this->to_update['internal_status'] = $this->status_code = $ticket->get('internal_status');
-            else $this->to_update['status'] =  $this->status_code = $ticket->get('status');
-
+            if($user['user_type'] === "SP") $this->to_update['status'] = $this->status_code = $ticket->get('status');
+            else $this->to_update['internal_status'] =  $this->status_code = $ticket->get('internal_status');
             $this->to_update[array_keys($this->to_update)[0]] = $this->status_code = $this->newTicketStatus(); 
         }
     }
@@ -86,7 +86,7 @@ class ProgressController extends ParamSetup{
         $query->dbUpdate();
     }
     private function newTicketStatus(){
-        $ticket =  collect($this->getTicketStatus());
+        $ticket =  collect($this->getTicketStatus(null));
         $newStatus = DB::table('tbl_status_list')
                 ->where('sort',$ticket->get('sort') + 1)
                 ->where('isInternal',$ticket->get('isInternal'))
@@ -94,13 +94,14 @@ class ProgressController extends ParamSetup{
         if(!$newStatus) throw new Exception("Ticket is already resolved", 402);
         return $newStatus->code;
     }
-    private function getTicketStatus(){
-        if(!$this->status_code) throw new Exception("Ticket status code is not define.", 401);
-        
+    public function getTicketStatus($status_code = null){
+        $status_code = $status_code ?? $this->status_code;
+        if(!$status_code) throw new Exception("Ticket status code is not define.", 401);
+       
         return DB::table('tbl_general_options as go')->select('value','go.code','sl.sort','sl.isInternal')
                 ->join('tbl_status_list as sl','sl.code','go.code')
                 ->where('type','ticket_status')
-                ->where('sl.code',$this->status_code)->first();
+                ->where('sl.code',$status_code)->first();
     }
     private function getTicketDetails(){
         if(!$this->code) throw new Exception("Ticket code required.", 400);

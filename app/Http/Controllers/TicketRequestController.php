@@ -78,6 +78,7 @@ class TicketRequestController extends ParamSetup
         $this->type = $request['type'];
         if ($request['type'] === 'add') {
             $this->values = $request['values'];
+            $this->values['status'] = (new ProgressController)->getTicketStatus('TS01')->code ?? '';
             $this->details = $this->values["details"] ?? [];
             unset($this->values["details"]);
             $this->generateCodeGeneric('keyCode', 'code_prefix'); //generate ticket code
