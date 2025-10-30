@@ -88,7 +88,6 @@ class TicketRequestController extends ParamSetup
             $this->values = $request['values'];
         } else if (in_array($request['type'], ['delete', 'list', 'get'])) {
             $this->conditions = $request['conditions'];
-            $this->code = $this->conditions["ticket_code"] ?? null;
         }
     }
 
@@ -157,26 +156,27 @@ class TicketRequestController extends ParamSetup
     }
 
 
-    private function isAuthorized(string $table, string $type)
-    {
-        $user = Auth::user();
-        $userReg = SystemUsers::where('user_name', $user->name)->first();
-        if (!$userReg) return false;
-
-        // get specific ticket access (must be assigned)
-        if ($type === 'get' && $table === 'ticket_request') {
-            $ticketCode = $this->request['conditions']['ticket_code'] ?? null;
-            if (!$ticketCode) return false;
-
-            $result = DB::table('ticket_request AS t')
-                ->leftJoin('tbl_assignment_personnel AS a', 't.ticket_code', '=', 'a.ticket_code')
-                ->where('t.ticket_code', $ticketCode)
-                ->where('a.assigned_to', $userReg->user_name)
-                ->select('t.ticket_code')
-                ->first();
-
-            return (bool)$result;
-        }
+//    private function isAuthorized(string $table, string $type)
+//    {
+//        $user = Auth::user();
+//        $userReg = SystemUsers::where('user_name', $user->name)->first();
+//        if (!$userReg) return false;
+//
+//        // get specific ticket access (must be assigned)
+//        if ($type === 'get' && $table === 'ticket_request') {
+//            $ticketCode = $this->request['conditions']['ticket_code'] ?? null;
+//            if (!$ticketCode) return false;
+//
+//            $result = DB::table('ticket_request AS t')
+//                ->leftJoin('tbl_assignment_personnel AS a', 't.ticket_code', '=', 'a.ticket_code')
+//                ->where('t.ticket_code', $ticketCode)
+//                ->where('a.assigned_to', $userReg->user_name)
+//                ->select('t.ticket_code')
+//                ->first();
+//
+//            return (bool)$result;
+//        }
+//    }
 
         // list tickets (auto filter to assigned)
 //        if ($type === 'all' && $table === 'ticket_request') {
@@ -186,7 +186,7 @@ class TicketRequestController extends ParamSetup
 //
 //            return $assign;
 //        }
-    }
+
 //    private function TicketTypes()
 //    {
 //        $typeQuery = DB::table('ticket_request')
@@ -215,26 +215,36 @@ class TicketRequestController extends ParamSetup
 //            }
 //        }
 
-    private function TicketTypes()
+    private function TicketTypes($conditions = [])
     {
         $user = Auth::user();
         $userReg = SystemUsers::where('user_name', $user->name)->first();
-        
+
         $typeQuery = DB::table('ticket_request')
-            ->leftJoin('tbl_assignment_personnel as a', 'ticket_request.ticket_code', '=', 'a.ticket_code')
-            ->leftJoin('tbl_general_options as type_options', function($join) {
+            ->leftJoin('tbl_assignment_personnel as assigned', function ($join) {
+                $join->on('ticket_request.ticket_code', '=', 'assigned.ticket_code');
+            })
+            // join to get custom_user_name for assigned_to
+            ->leftJoin('system_users as assigned_to_user', function ($join) {
+                $join->on('assigned.assigned_to', '=', 'assigned_to_user.user_name');
+            })
+            // join to get custom_user_name for assigned_from
+            ->leftJoin('system_users as assigned_from_user', function ($join) {
+                $join->on('assigned.assigned_from', '=', 'assigned_from_user.user_name');
+            })
+            ->leftJoin('tbl_general_options as type_options', function ($join) {
                 $join->on('ticket_request.type', '=', 'type_options.code')
                     ->where('type_options.type', '=', 'ticket_type');
             })
-            ->leftJoin('tbl_general_options as priority_options', function($join) {
+            ->leftJoin('tbl_general_options as priority_options', function ($join) {
                 $join->on('ticket_request.priority_level', '=', 'priority_options.code')
                     ->where('priority_options.type', '=', 'priority');
             })
-            ->leftJoin('tbl_general_options as status_options', function($join) {
+            ->leftJoin('tbl_general_options as status_options', function ($join) {
                 $join->on('ticket_request.status', '=', 'status_options.code')
                     ->where('status_options.type', '=', 'ticket_status');
             })
-            ->leftJoin('system_users as users', function($join) {
+            ->leftJoin('system_users as users', function ($join) {
                 $join->on('ticket_request.user_name', '=', 'users.user_name')
                     ->where('users.status', '=', '1');
             })
@@ -244,29 +254,37 @@ class TicketRequestController extends ParamSetup
                 'priority_options.value as priority_name',
                 'status_options.value as status_name',
                 'users.custom_user_name as custom_user_name',
-                'a.assigned_to as assignedTo',
-                'a.internal_assignee'
-                
+                'assigned_to_user.custom_user_name as assignedTo',
+                'assigned_from_user.custom_user_name as assignedFrom'
             );
 
-        if ($userReg->user_type === 'AD') {
-            $typeQuery->where('a.assigned_to', $userReg->user_name);
+        if ($userReg->user_type === 'DV') {
+            $typeQuery->where('assigned.assigned_to', $userReg->user_name);
         } elseif ($userReg->user_type === 'CL') {
             $typeQuery->where('ticket_request.user_name', $userReg->user_name);
         }
-        if($this->code && $this->type === 'get') return $typeQuery->where('ticket_request.ticket_code',$this->code)->first();
+
+        if (!empty($conditions)) {
+            foreach ($conditions as $field => $value) {
+                $typeQuery->where("ticket_request.$field", $value);
+            }
+        }
+
         return $typeQuery->get();
     }
+
 
     private function responseParser(): mixed
     {
         if ($this->table === 'ticket_request') {
-            if (in_array($this->type,['get','all'])) {
-                return $this->TicketTypes();
+            if ($this->type == 'all' || $this->type == 'get') {
+                $conditions = $this->conditions ?? [];
+                return $this->TicketTypes($conditions);
             }
         }
         return $this->filterResponse($this->response);
     }
+
 
     private function setTables(): bool
     {
