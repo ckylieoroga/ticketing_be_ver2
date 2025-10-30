@@ -28,11 +28,12 @@ class AuthController extends Controller
         $create->first_name = env('ADMIN_FIRST_NAME','admin');
         $create->last_name = env('ADMIN_LAST_NAME','admin');
         $create->user_name = $credentials['userName'];
-        $create->custom_user_name = env('ADMIN_USERNAME','admin');
+        $create->custom_user_name = env('ADMIN_USERNAME','admin2');
         $create->gender = env('ADMIN_GENDER','M');
         $create->birthday = env('ADMIN_BIRTHDATE','2002-06-22');
-        $create->email = env('ADMIN_EMAIL','hidlaojayvee18@gmail.com');
+        $create->email = env('ADMIN_EMAIL','hidlaojayvee@gmail.com');
         $create->secret_key = $credentials['userKey'];
+        $create->user_type = "DV"; # temporary type
         $create->designation = 0;
         $create->max_tokens = 999;
         $create->status = 1;
