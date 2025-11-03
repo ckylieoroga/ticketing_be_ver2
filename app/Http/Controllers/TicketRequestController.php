@@ -215,14 +215,90 @@ class TicketRequestController extends ParamSetup
 //                }
 //            }
 //        }
+    private function getAllGeneralOptions($type){
+        $option = DB::table("tbl_general_options as tgo")
+                ->select(
+                    "tgo.code",
+                    "tgo.type",
+                    "tgo.value",
+                    "tgo.status",
+                    "tsl.description",
+                    "tsl.isInternal",
+                    "tsl.sort"
+                )
+                ->leftjoin("tbl_status_list as tsl" , function($query){
+                    $query->on("tgo.code","tsl.code");
+                });
+      
+        if(gettype($type) === "string") $option = $option->where('tgo.type',$type);
+        else $option = $option->whereIn("tgo.type",$type);
+        $optionList  = array();
+        foreach ($option->get() as $key => $value) {
+            $optionList[$value->code] = $value;
+        }
+        return $optionList;
+    }
+    private function ticketDetailDisplay($request_condition = []){
+        $condition = array();
+        $user = Auth::user();
+        $userReg = SystemUsers::where('user_name', $user->name)->first();
+        $status_list = $this->getAllGeneralOptions(["ticket_status","priority","ticket_type"]);
 
+
+        $ticketQuery = DB::table('ticket_request as tr')
+                    ->join("system_users as su", function($query) {
+                        $query->on("su.user_name","tr.user_name");
+                    })
+                    ->leftjoin("tbl_assignment_personnel as tap", function($query){
+                        $query->on("tap.ticket_code","tr.ticket_code");
+                    });
+        if($userReg->user_type === "DV") $condition[] = ['tap.internal_assignee',$userReg->user_name];
+        else if($userReg->user_type === "CL") $condition[] = ["tr.user_name",$userReg->user_name];
+        if(count($request_condition) > 0){
+            foreach ($request_condition as $field => $value) {
+                $ticketQuery = $ticketQuery->where("tr.$field", $value);
+            }
+        }
+        if(count($condition) > 0)  $ticketQuery = $ticketQuery->where($condition);
+        return $ticketQuery->get()->map( function ($data) use($status_list){
+                        $middle_initial = fn($middle) => substr($middle,0,1);
+                        return [
+                            'client' => $data->assigned_from,
+                            'assignee' => $data->assigned_to,
+                            'ticketCode' => $data->ticket_code,
+                            'client_details' => [
+                                'username' => $data->custom_user_name,
+                                'name' => (ucfirst($data->first_name).' '.ucfirst($middle_initial($data->middle_name)).'. '.ucfirst($data->last_name) ),
+                                'email' => $data->email,
+                            ],
+                            'ticket_details' => [
+                                'ticket_name' => $data->ticket_name,
+                                'description' => $data->description,
+                                'type' => $status_list[$data->type]->value ?? '',
+                                'module' => $data->module,
+                                'priority_level' => $status_list[$data->priority_level]->value ?? '',
+                                'status' => [
+                                    'code' =>$data->status,
+                                    'desc' => $status_list[$data->status]->value ?? ''
+                                ],
+                            ],
+                            'internal' => [
+                                'assignee' => $data->internal_assignee,
+                                'status' => $status_list[$data->internal_status]->value ?? '',
+                                'disclaimer' => $data->internal_disclaimer
+                            ]
+                        ];
+                    });
+        
+    }
     private function TicketTypes($conditions = [])
     {
+        return $this->ticketDetailDisplay();
         $user = Auth::user();
         $userReg = SystemUsers::where('user_name', $user->name)->first();
 
         $typeQuery = DB::table('ticket_request')
-            ->leftJoin('tbl_assignment_personnel as assigned', function ($join) {
+            ->join('tbl_assignment_personnel as assigned', function ($join) {
                 $join->on('ticket_request.ticket_code', '=', 'assigned.ticket_code');
             })
             // join to get custom_user_name for assigned_to
