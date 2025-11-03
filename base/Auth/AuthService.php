@@ -147,6 +147,7 @@ class AuthService
                 )
                 ->join("users_access as ua",'ua.code','system_users.access_codes')
                 ->where('system_users.access_codes','LIKE',"%$code%")
+                ->whereNotIn('user_type',['CL'])
                 ->get()->toArray();
         return returnResponse($data,200);
     }

@@ -58,21 +58,21 @@ class AssignmentController extends ParamSetup
         $this->conditions = $request['conditions'] ?? null;
         $this->code =  $this->values['ticket_code'] ?? $this->conditions['ticket_code'] ?? null;
         $this->updateType = $this->values['type'] ?? $this->conditions['type'] ?? null;
-       if(in_array($this->type,['add','update'])) $this->validations();
+       if(in_array($this->type,['add','update','transfer'])) $this->validations();
     }
     public function execQuery():void{
         try {
             DB::beginTransaction();
                 if($this->type === "add") $this->acceptTicket();
-                else if($this->type === "update"){
+                else if(in_array($this->type,['update','transfer'])){
                     $trail = new TrailController($this->code,$this->values['assigned_to'] ?? null ,'');
-                    if($this->updateType === "RA"){
+                    // if($this->updateType === "RA"){
                         $trail->status = $this->getTicketStatus('Open')->code ?? '';
                         $trail->is_internal = true;
-                        $trail->remarks =  $this->values['remarks'] ?? "Reassign";
+                        $trail->remarks =  $this->values['disclaimer'] ?? "Reassign";
                         $query = new DBQueries($this->table,[
                             'internal_assignee' => $this->values['assigned_to'],
-                            'internal_disclaimer' => $this->values['remarks'] ?? null,
+                            'internal_disclaimer' => $this->values['disclaimer'] ?? null,
                             'internal_status' => $this->getTicketStatus('Open')->code ?? ''
                         ],
                         [
@@ -81,7 +81,7 @@ class AssignmentController extends ParamSetup
                         $query->dbUpdate();
                         $trail->executeTrail();
                         $this->response = "Successfully reassign.";
-                    }
+                    // }
                 }
             DB::commit();
         } catch (\Exception $ex) {
