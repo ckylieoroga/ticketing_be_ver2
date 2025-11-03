@@ -246,6 +246,18 @@ class TicketRequestController extends ParamSetup
 
 
         $ticketQuery = DB::table('ticket_request as tr')
+                    ->select(
+                        "tr.*",
+                        "su.custom_user_name",
+                        "su.first_name","su.middle_name","su.last_name",
+                        "su.email",
+                        "tap.internal_status",
+                        "tap.internal_disclaimer",
+                        "tap.internal_assignee",
+                        "tap.status as assignment_status",
+                        "tap.assigned_from",
+                        "tap.assigned_to"
+                    )
                     ->join("system_users as su", function($query) {
                         $query->on("su.user_name","tr.user_name");
                     })
@@ -254,13 +266,14 @@ class TicketRequestController extends ParamSetup
                     });
         if($userReg->user_type === "DV") $condition[] = ['tap.internal_assignee',$userReg->user_name];
         else if($userReg->user_type === "CL") $condition[] = ["tr.user_name",$userReg->user_name];
+     
         if(count($request_condition) > 0){
             foreach ($request_condition as $field => $value) {
                 $ticketQuery = $ticketQuery->where("tr.$field", $value);
             }
         }
         if(count($condition) > 0)  $ticketQuery = $ticketQuery->where($condition);
-        return $ticketQuery->get()->map( function ($data) use($status_list){
+        return $ticketQuery->orderBy('created_at','DESC')->get()->map( function ($data) use($status_list){
                         $middle_initial = fn($middle) => substr($middle,0,1);
                         return [
                             'client' => $data->assigned_from,
@@ -286,14 +299,15 @@ class TicketRequestController extends ParamSetup
                                 'assignee' => $data->internal_assignee,
                                 'status' => $status_list[$data->internal_status]->value ?? '',
                                 'disclaimer' => $data->internal_disclaimer
-                            ]
+                            ],
+                            'created_at' => $data->created_at
                         ];
                     });
         
     }
     private function TicketTypes($conditions = [])
     {
-        return $this->ticketDetailDisplay();
+        return $this->ticketDetailDisplay($conditions);
         $user = Auth::user();
         $userReg = SystemUsers::where('user_name', $user->name)->first();
 
